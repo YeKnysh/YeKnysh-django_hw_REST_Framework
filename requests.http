@@ -1,0 +1,19 @@
+### Create
+POST http://127.0.0.1:8000/api/v1/tasks/create/
+Content-Type: application/json
+
+{
+  "title": "Написать отчёт",
+  "description": "до пятницы",
+  "status": "in_progress",
+  "deadline": "2025-10-10"
+}
+
+### List
+GET http://127.0.0.1:8000/api/v1/tasks/
+
+### Detail (подставь id)
+GET http://127.0.0.1:8000/api/v1/tasks/1/
+
+### Stats
+GET http://127.0.0.1:8000/api/v1/tasks/stats/
