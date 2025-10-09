@@ -29,7 +29,7 @@ Content-Type: application/json
   "status": "in_progress"
 }
 
-### List SubTasks — все подзадачи
+### List SubTasks — все подзадачи (ДЗ-13, дополнено)
 GET http://127.0.0.1:8000/api/v1/tasks/subtasks/
 
 ### List SubTasks (filter by task) — подзадачи для задачи id=1
@@ -71,3 +71,27 @@ Content-Type: application/json
   "status": "new",
   "deadline": "2020-01-01"
 }
+
+
+# ===================== ДЗ-14 =====================
+
+### Tasks by day — без параметра (должны вернуться все задачи)
+GET http://127.0.0.1:8000/api/v1/tasks/by-day/
+
+### Tasks by day — вторник (рус)
+GET http://127.0.0.1:8000/api/v1/tasks/by-day/?day=вторник
+
+### Tasks by day — Tuesday (eng)
+GET http://127.0.0.1:8000/api/v1/tasks/by-day/?day=tuesday
+
+### SubTasks paginated — страница 1 по 5 шт (order: newest first)
+GET http://127.0.0.1:8000/api/v1/tasks/subtasks/?page=1
+
+### SubTasks filtered by task title (по части названия главной задачи)
+GET http://127.0.0.1:8000/api/v1/tasks/subtasks/?task_title=Задача
+
+### SubTasks filtered by status
+GET http://127.0.0.1:8000/api/v1/tasks/subtasks/?status=in_progress
+
+### SubTasks filtered by both (и пагинация)
+GET http://127.0.0.1:8000/api/v1/tasks/subtasks/?task_title=Задача&status=done&page=1
