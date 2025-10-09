@@ -1,19 +1,73 @@
-### Create
+### Ping (проверка, что сервер запущен)
+GET http://127.0.0.1:8000/api/ping/
+
+### Create Task (если задач ещё нет)
 POST http://127.0.0.1:8000/api/v1/tasks/create/
 Content-Type: application/json
 
 {
-  "title": "Написать отчёт",
-  "description": "до пятницы",
-  "status": "in_progress",
+  "title": "Задача для подзадач",
+  "description": "база для теста SubTask",
+  "status": "new",
   "deadline": "2025-10-10"
 }
 
-### List
+### List Tasks — посмотреть id (используй его ниже вместо 1 при необходимости)
 GET http://127.0.0.1:8000/api/v1/tasks/
 
-### Detail (подставь id)
+### Stats — агрегаты по задачам (из ДЗ-12)
+GET http://127.0.0.1:8000/api/v1/tasks/stats/
+
+
+### Create SubTask (APIView) — создаём подзадачу к задаче с id=1
+POST http://127.0.0.1:8000/api/v1/tasks/subtasks/
+Content-Type: application/json
+
+{
+  "task": 1,
+  "title": "Подзадача 1",
+  "status": "in_progress"
+}
+
+### List SubTasks — все подзадачи
+GET http://127.0.0.1:8000/api/v1/tasks/subtasks/
+
+### List SubTasks (filter by task) — подзадачи для задачи id=1
+GET http://127.0.0.1:8000/api/v1/tasks/subtasks/?task=1
+
+### SubTask Detail — детальная подзадача (замени 1 на свой subtask id)
+GET http://127.0.0.1:8000/api/v1/tasks/subtasks/1/
+
+### SubTask Update (PUT) — полное обновление
+PUT http://127.0.0.1:8000/api/v1/tasks/subtasks/1/
+Content-Type: application/json
+
+{
+  "task": 1,
+  "title": "Подзадача 1 (обновлено)",
+  "status": "done"
+}
+
+### SubTask Partial Update (PATCH) — частичное обновление
+PATCH http://127.0.0.1:8000/api/v1/tasks/subtasks/1/
+Content-Type: application/json
+
+{
+  "status": "new"
+}
+
+### SubTask Delete — удаление подзадачи
+DELETE http://127.0.0.1:8000/api/v1/tasks/subtasks/1/
+
+### Task Detail — убедиться, что в задаче виден вложенный блок subtasks
 GET http://127.0.0.1:8000/api/v1/tasks/1/
 
-### Stats
-GET http://127.0.0.1:8000/api/v1/tasks/stats/
+### NEGATIVE: deadline в прошлом → ожидаем 400 Bad Request
+POST http://127.0.0.1:8000/api/v1/tasks/create/
+Content-Type: application/json
+
+{
+  "title": "Плохой дедлайн",
+  "status": "new",
+  "deadline": "2020-01-01"
+}
