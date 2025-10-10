@@ -30,3 +30,12 @@
 
 ## Быстрая проверка (PyCharm HTTP Client)
 Смотри файл `requests.http` в корне репозитория (в нём все запросы для HW12–HW14).
+
+## HW15 — Generic Views
+- Tasks (GV): 
+  - GET/POST  /api/v1/tasks-gv/  (?search=..&status=..&ordering=.., пагинация по 5)
+  - GET/PUT/PATCH/DELETE /api/v1/tasks-gv/<id>/
+- SubTasks (GV):
+  - GET/POST  /api/v1/tasks/subtasks-gv/  (?task=..&status=..&search=..&ordering=.., пагинация)
+  - GET/PUT/PATCH/DELETE /api/v1/tasks/subtasks-gv/<id>/
+Используются Search/Ordering/DjangoFilter backends.

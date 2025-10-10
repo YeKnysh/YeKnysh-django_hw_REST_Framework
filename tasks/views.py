@@ -2,13 +2,18 @@
 from django.utils import timezone
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
-from django.db.models.functions import ExtractWeekDay  # <-- ДЗ-14: извлекаем день недели из даты
+from django.db.models.functions import ExtractWeekDay  # ДЗ-14
 
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.pagination import PageNumberPagination  # <-- ДЗ-14: пагинация
+from rest_framework.pagination import PageNumberPagination  # ДЗ-14
+
+# --- ДЗ-15 (Generic Views) ---
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework import filters as drf_filters
+from django_filters.rest_framework import DjangoFilterBackend
 
 from tasks.models import Task, SubTask
 from tasks.serializers import (
@@ -182,3 +187,55 @@ class TaskByWeekdayView(APIView):
 
         data = TaskDetailSerializer(qs.order_by('id'), many=True).data
         return Response(data, status=status.HTTP_200_OK)
+
+
+# ===================== ДЗ-15: ДОБАВЛЕНЫ GENERIC VIEWS (НЕ ЗАМЕНЯЮТ СТАРЫЕ) =====================
+
+class TaskGVListCreateView(ListCreateAPIView):
+    """
+    Новые generic-вьюхи для задач (HW15).
+    GET  /api/v1/tasks-gv/        — список задач (фильтр/поиск/сорт)
+    POST /api/v1/tasks-gv/        — создать задачу
+    (старый функционал из ДЗ-12 остаётся на /api/v1/tasks/)
+    """
+    queryset = Task.objects.all().order_by('-id')
+    filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
+    filterset_fields = ['status', 'deadline']              # ?status=in_progress&deadline=2025-10-10
+    search_fields = ['title', 'description']               # ?search=отчёт
+    ordering_fields = ['deadline', 'id', 'title']          # ?ordering=-deadline
+
+    def get_serializer_class(self):
+        return TaskCreateSerializer if self.request.method == 'POST' else TaskListSerializer
+
+
+class TaskGVDetailView(RetrieveUpdateDestroyAPIView):
+    """
+    GET/PUT/PATCH/DELETE /api/v1/tasks-gv/<pk>/
+    """
+    queryset = Task.objects.all()
+    serializer_class = TaskDetailSerializer
+
+
+class SubTaskGVListCreateView(ListCreateAPIView):
+    """
+    Новые generic-вьюхи для подзадач (HW15).
+    GET  /api/v1/tasks/subtasks-gv/  — список (фильтр/поиск/сорт)
+    POST /api/v1/tasks/subtasks-gv/  — создать
+    (старые APIView остаются на /api/v1/tasks/subtasks/)
+    """
+    queryset = SubTask.objects.select_related('task').all().order_by('-created_at', '-id')
+    filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
+    filterset_fields = ['task', 'status']                  # ?task=1&status=done
+    search_fields = ['title', 'task__title']               # ?search=подзадача
+    ordering_fields = ['created_at', 'deadline', 'id', 'title', 'status']
+
+    def get_serializer_class(self):
+        return SubTaskCreateSerializer if self.request.method == 'POST' else SubTaskSerializer
+
+
+class SubTaskGVDetailView(RetrieveUpdateDestroyAPIView):
+    """
+    GET/PUT/PATCH/DELETE /api/v1/tasks/subtasks-gv/<pk>/
+    """
+    queryset = SubTask.objects.select_related('task').all()
+    serializer_class = SubTaskSerializer

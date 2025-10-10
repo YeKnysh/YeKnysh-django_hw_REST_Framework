@@ -95,3 +95,88 @@ GET http://127.0.0.1:8000/api/v1/tasks/subtasks/?status=in_progress
 
 ### SubTasks filtered by both (и пагинация)
 GET http://127.0.0.1:8000/api/v1/tasks/subtasks/?task_title=Задача&status=done&page=1
+
+
+
+# ===================== ДЗ-15 (Generic Views) =====================
+
+# ---- Task Generic Views ----
+
+### Tasks-GV: список (пагинация+поиск+сорт+фильтр)
+GET http://127.0.0.1:8000/api/v1/tasks-gv/?search=задача&status=new&ordering=-deadline
+
+### Tasks-GV: создать (то же, что /tasks/create/, но через generic view)
+POST http://127.0.0.1:8000/api/v1/tasks-gv/
+Content-Type: application/json
+
+{
+  "title": "GV-задача 1",
+  "description": "создано через generic view",
+  "status": "in_progress",
+  "deadline": "2025-11-01"
+}
+
+### Tasks-GV: деталь (замени 1 на реальный id)
+GET http://127.0.0.1:8000/api/v1/tasks-gv/1/
+
+### Tasks-GV: обновить (PUT)
+PUT http://127.0.0.1:8000/api/v1/tasks-gv/1/
+Content-Type: application/json
+
+{
+  "title": "GV-задача 1 (обновлено)",
+  "description": "через PUT",
+  "status": "done",
+  "deadline": "2025-11-05"
+}
+
+### Tasks-GV: частичное обновление (PATCH)
+PATCH http://127.0.0.1:8000/api/v1/tasks-gv/1/
+Content-Type: application/json
+
+{
+  "status": "new"
+}
+
+### Tasks-GV: удалить
+DELETE http://127.0.0.1:8000/api/v1/tasks-gv/1/
+
+
+# ---- SubTask Generic Views ----
+
+### SubTasks-GV: список (фильтры/поиск/сортировка)
+GET http://127.0.0.1:8000/api/v1/tasks/subtasks-gv/?task=1&status=in_progress&search=подзадача&ordering=-created_at
+
+### SubTasks-GV: создать
+POST http://127.0.0.1:8000/api/v1/tasks/subtasks-gv/
+Content-Type: application/json
+
+{
+  "task": 1,
+  "title": "GV-подзадача 1",
+  "status": "new"
+}
+
+### SubTasks-GV: деталь (замени 1 на реальный id)
+GET http://127.0.0.1:8000/api/v1/tasks/subtasks-gv/1/
+
+### SubTasks-GV: обновить (PUT)
+PUT http://127.0.0.1:8000/api/v1/tasks/subtasks-gv/1/
+Content-Type: application/json
+
+{
+  "task": 1,
+  "title": "GV-подзадача 1 (обновлено)",
+  "status": "done"
+}
+
+### SubTasks-GV: частичное обновление (PATCH)
+PATCH http://127.0.0.1:8000/api/v1/tasks/subtasks-gv/1/
+Content-Type: application/json
+
+{
+  "status": "in_progress"
+}
+
+### SubTasks-GV: удалить
+DELETE http://127.0.0.1:8000/api/v1/tasks/subtasks-gv/1/

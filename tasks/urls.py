@@ -6,6 +6,9 @@ from tasks.views import (
     SubTaskListCreateView, SubTaskDetailUpdateDeleteView,
     # ДЗ-14
     TaskByWeekdayView,
+    # ДЗ-15 (Generic Views, новые маршруты)
+    TaskGVListCreateView, TaskGVDetailView,
+    SubTaskGVListCreateView, SubTaskGVDetailView,
 )
 
 urlpatterns = [
@@ -21,4 +24,11 @@ urlpatterns = [
     # ---- SubTask (ДЗ-13) ----
     path('subtasks/', SubTaskListCreateView.as_view(), name='subtask-list-create'),            # GET/POST
     path('subtasks/<int:pk>/', SubTaskDetailUpdateDeleteView.as_view(), name='subtask-udr'),   # GET/PUT/PATCH/DELETE
+
+    # ---- ДЗ-15: Generic Views (параллельные маршруты, прошлое не трогаем) ----
+    path('tasks-gv/', TaskGVListCreateView.as_view(), name='task-gv-list-create'),             # GET/POST
+    path('tasks-gv/<int:pk>/', TaskGVDetailView.as_view(), name='task-gv-detail'),             # GET/PUT/PATCH/DELETE
+
+    path('subtasks-gv/', SubTaskGVListCreateView.as_view(), name='subtask-gv-list-create'),    # GET/POST
+    path('subtasks-gv/<int:pk>/', SubTaskGVDetailView.as_view(), name='subtask-gv-detail'),    # GET/PUT/PATCH/DELETE
 ]
