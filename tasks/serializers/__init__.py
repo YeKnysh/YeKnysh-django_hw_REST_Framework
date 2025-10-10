@@ -1,9 +1,12 @@
 # tasks/serializers/__init__.py
 from .serializers import (
-    TaskListSerializer,
-    TaskDetailSerializer,
-    TaskCreateSerializer,
-    SubTaskSerializer,
-    SubTaskCreateSerializer,
-    CategoryCreateSerializer,
+    CategorySerializer, CategoryCreateSerializer,
+    TaskListSerializer, TaskDetailSerializer, TaskCreateSerializer,
+    SubTaskSerializer, SubTaskCreateSerializer,
 )
+
+__all__ = [
+    'CategorySerializer', 'CategoryCreateSerializer',
+    'TaskListSerializer', 'TaskDetailSerializer', 'TaskCreateSerializer',
+    'SubTaskSerializer', 'SubTaskCreateSerializer',
+]

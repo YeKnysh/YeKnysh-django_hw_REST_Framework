@@ -39,3 +39,16 @@
   - GET/POST  /api/v1/tasks/subtasks-gv/  (?task=..&status=..&search=..&ordering=.., пагинация)
   - GET/PUT/PATCH/DELETE /api/v1/tasks/subtasks-gv/<id>/
 Используются Search/Ordering/DjangoFilter backends.
+
+## HW16 — Categories: ModelViewSet + Soft Delete
+Новая ветка: `hw16-viewsets-softdelete`.
+
+**Эндпоинты (через DRF router, префикс `/api/v1/tasks/`):**
+- `GET /categories/` — список (только не удалённые)
+- `POST /categories/` — создать
+- `GET /categories/<id>/` — детально
+- `PATCH /categories/<id>/`, `PUT /categories/<id>/` — обновить
+- `DELETE /categories/<id>/` — мягкое удаление (is_deleted=True, deleted_at=now)
+- `GET /categories/<id>/count_tasks/` — сколько задач привязано к категории
+
+**Быстрая проверка:** см. блок *Categories* в `requests.http`.

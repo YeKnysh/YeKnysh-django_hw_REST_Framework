@@ -1,21 +1,13 @@
 # tasks/views.py
-from rest_framework import viewsets, decorators
-from rest_framework.response import Response
-
-from tasks.serializers import (
-    CategorySerializer,
-    CategoryCreateSerializer,
-)
-from tasks.models import Category
 from django.utils import timezone
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.db.models.functions import ExtractWeekDay  # ДЗ-14
 
+from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.pagination import PageNumberPagination  # ДЗ-14
 
 # --- ДЗ-15 (Generic Views) ---
@@ -23,8 +15,15 @@ from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIV
 from rest_framework import filters as drf_filters
 from django_filters.rest_framework import DjangoFilterBackend
 
-from tasks.models import Task, SubTask
+# --- ДЗ-16 (ViewSet для категорий) ---
+from rest_framework import viewsets, decorators
+
+from tasks.models import Task, SubTask, Category
 from tasks.serializers import (
+    # ДЗ-16
+    CategorySerializer,
+    CategoryCreateSerializer,
+    # ДЗ-12/13
     TaskListSerializer,
     TaskDetailSerializer,
     TaskCreateSerializer,
@@ -197,14 +196,12 @@ class TaskByWeekdayView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
-# ===================== ДЗ-15: ДОБАВЛЕНЫ GENERIC VIEWS (НЕ ЗАМЕНЯЮТ СТАРЫЕ) =====================
+# ===================== ДЗ-15: GENERIC VIEWS (параллельно к старым) =====================
 
 class TaskGVListCreateView(ListCreateAPIView):
     """
-    Новые generic-вьюхи для задач (HW15).
     GET  /api/v1/tasks-gv/        — список задач (фильтр/поиск/сорт)
     POST /api/v1/tasks-gv/        — создать задачу
-    (старый функционал из ДЗ-12 остаётся на /api/v1/tasks/)
     """
     queryset = Task.objects.all().order_by('-id')
     filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
@@ -217,41 +214,37 @@ class TaskGVListCreateView(ListCreateAPIView):
 
 
 class TaskGVDetailView(RetrieveUpdateDestroyAPIView):
-    """
-    GET/PUT/PATCH/DELETE /api/v1/tasks-gv/<pk>/
-    """
+    """GET/PUT/PATCH/DELETE /api/v1/tasks-gv/<pk>/"""
     queryset = Task.objects.all()
     serializer_class = TaskDetailSerializer
 
 
 class SubTaskGVListCreateView(ListCreateAPIView):
     """
-    Новые generic-вьюхи для подзадач (HW15).
     GET  /api/v1/tasks/subtasks-gv/  — список (фильтр/поиск/сорт)
     POST /api/v1/tasks/subtasks-gv/  — создать
-    (старые APIView остаются на /api/v1/tasks/subtasks/)
     """
     queryset = SubTask.objects.select_related('task').all().order_by('-created_at', '-id')
     filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
     filterset_fields = ['task', 'status']                  # ?task=1&status=done
     search_fields = ['title', 'task__title']               # ?search=подзадача
-    ordering_fields = ['created_at', 'deadline', 'id', 'title', 'status']
+    ordering_fields = ['created_at', 'id', 'title', 'status']  # без 'deadline' — его нет у SubTask
 
     def get_serializer_class(self):
         return SubTaskCreateSerializer if self.request.method == 'POST' else SubTaskSerializer
 
 
 class SubTaskGVDetailView(RetrieveUpdateDestroyAPIView):
-    """
-    GET/PUT/PATCH/DELETE /api/v1/tasks/subtasks-gv/<pk>/
-    """
+    """GET/PUT/PATCH/DELETE /api/v1/tasks/subtasks-gv/<pk>/"""
     queryset = SubTask.objects.select_related('task').all()
     serializer_class = SubTaskSerializer
 
+
 # ============ ДЗ-16: Category ViewSet (CRUD + soft-delete + count_tasks) ============
+
 class CategoryViewSet(viewsets.ModelViewSet):
     """
-    Маршруты (через DefaultRouter, уже подключили в tasks/urls.py):
+    Маршруты (через DefaultRouter, подключён в tasks/urls.py):
       - GET    /api/v1/tasks/categories/
       - POST   /api/v1/tasks/categories/
       - GET    /api/v1/tasks/categories/<id>/
@@ -260,22 +253,19 @@ class CategoryViewSet(viewsets.ModelViewSet):
       - DELETE /api/v1/tasks/categories/<id>/    <-- мягкое удаление
 
     Кастомный экшен:
-      - GET    /api/v1/tasks/categories/<id>/count_tasks/  -> {"category_id": ..., "tasks_count": N}
+      - GET    /api/v1/tasks/categories/<id>/count_tasks/
     """
-    # Менеджер SoftDeleteManager отдаёт только НЕ удалённые категории
     queryset = Category.objects.all().order_by('id')
 
     def get_serializer_class(self):
-        # Для создания/обновления — минимальный набор полей (name),
-        # для чтения — полный вывод (в т.ч. is_deleted/deleted_at как read-only)
         if self.action in ('create', 'update', 'partial_update'):
             return CategoryCreateSerializer
         return CategorySerializer
 
     def destroy(self, request, *args, **kwargs):
-        """Мягкое удаление: вызывает model.delete(), которая помечает is_deleted=True."""
+        """Мягкое удаление: model.delete() помечает is_deleted=True."""
         instance = self.get_object()
-        instance.delete()  # soft-delete (см. models.py)
+        instance.delete()
         return Response(status=204)
 
     @decorators.action(detail=True, methods=['get'])
