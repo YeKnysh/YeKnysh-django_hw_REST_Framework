@@ -1,4 +1,12 @@
 # tasks/views.py
+from rest_framework import viewsets, decorators
+from rest_framework.response import Response
+
+from tasks.serializers import (
+    CategorySerializer,
+    CategoryCreateSerializer,
+)
+from tasks.models import Category
 from django.utils import timezone
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
@@ -239,3 +247,40 @@ class SubTaskGVDetailView(RetrieveUpdateDestroyAPIView):
     """
     queryset = SubTask.objects.select_related('task').all()
     serializer_class = SubTaskSerializer
+
+# ============ ДЗ-16: Category ViewSet (CRUD + soft-delete + count_tasks) ============
+class CategoryViewSet(viewsets.ModelViewSet):
+    """
+    Маршруты (через DefaultRouter, уже подключили в tasks/urls.py):
+      - GET    /api/v1/tasks/categories/
+      - POST   /api/v1/tasks/categories/
+      - GET    /api/v1/tasks/categories/<id>/
+      - PATCH  /api/v1/tasks/categories/<id>/
+      - PUT    /api/v1/tasks/categories/<id>/
+      - DELETE /api/v1/tasks/categories/<id>/    <-- мягкое удаление
+
+    Кастомный экшен:
+      - GET    /api/v1/tasks/categories/<id>/count_tasks/  -> {"category_id": ..., "tasks_count": N}
+    """
+    # Менеджер SoftDeleteManager отдаёт только НЕ удалённые категории
+    queryset = Category.objects.all().order_by('id')
+
+    def get_serializer_class(self):
+        # Для создания/обновления — минимальный набор полей (name),
+        # для чтения — полный вывод (в т.ч. is_deleted/deleted_at как read-only)
+        if self.action in ('create', 'update', 'partial_update'):
+            return CategoryCreateSerializer
+        return CategorySerializer
+
+    def destroy(self, request, *args, **kwargs):
+        """Мягкое удаление: вызывает model.delete(), которая помечает is_deleted=True."""
+        instance = self.get_object()
+        instance.delete()  # soft-delete (см. models.py)
+        return Response(status=204)
+
+    @decorators.action(detail=True, methods=['get'])
+    def count_tasks(self, request, pk=None):
+        """Количество задач, привязанных к категории."""
+        category = self.get_object()
+        count = category.tasks.count()
+        return Response({'category_id': category.id, 'tasks_count': count})

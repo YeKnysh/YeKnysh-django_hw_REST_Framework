@@ -180,3 +180,34 @@ Content-Type: application/json
 
 ### SubTasks-GV: удалить
 DELETE http://127.0.0.1:8000/api/v1/tasks/subtasks-gv/1/
+
+### Categories — create
+POST http://127.0.0.1:8000/api/v1/tasks/categories/
+Content-Type: application/json
+
+{
+  "name": "Работа"
+}
+
+### Categories — list
+GET http://127.0.0.1:8000/api/v1/tasks/categories/
+
+### Categories — detail (замени 1 на свой id)
+GET http://127.0.0.1:8000/api/v1/tasks/categories/1/
+
+### Categories — update (PATCH)
+PATCH http://127.0.0.1:8000/api/v1/tasks/categories/1/
+Content-Type: application/json
+
+{
+  "name": "Рабочие задачи"
+}
+
+### Categories — count tasks
+GET http://127.0.0.1:8000/api/v1/tasks/categories/1/count_tasks/
+
+### Categories — soft delete
+DELETE http://127.0.0.1:8000/api/v1/tasks/categories/1/
+
+### Categories — list (после удаления запись должна исчезнуть)
+GET http://127.0.0.1:8000/api/v1/tasks/categories/

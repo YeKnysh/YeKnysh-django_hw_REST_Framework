@@ -1,5 +1,6 @@
-from rest_framework import serializers
 from django.utils import timezone
+from rest_framework import serializers
+
 from tasks.models import Task, SubTask, Category
 
 
@@ -19,14 +20,27 @@ class SubTaskCreateSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-# ---------- Category ----------
-class CategoryCreateSerializer(serializers.ModelSerializer):
+# ---------- Category (для ДЗ-16: ViewSet + soft-delete) ----------
+class CategorySerializer(serializers.ModelSerializer):
+    """
+    Для list/retrieve. Поля soft-delete только для чтения.
+    """
     class Meta:
         model = Category
-        fields = '__all__'
+        fields = ['id', 'name', 'is_deleted', 'deleted_at']
+        read_only_fields = ['is_deleted', 'deleted_at']
 
-    # ДЗ-13.2: проверка уникальности имени (case-insensitive),
-    # работает и для create, и для update
+
+class CategoryCreateSerializer(serializers.ModelSerializer):
+    """
+    Для create/update. Пишем только name.
+    """
+    class Meta:
+        model = Category
+        fields = ['name']   # важно НЕ давать писать is_deleted/deleted_at
+
+    # ДЗ-13.2 (ранее): проверка уникальности имени (case-insensitive)
+    # Работает и для create, и для update.
     def validate_name(self, value: str):
         qs = Category.objects.filter(name__iexact=value)
         if self.instance:
@@ -55,7 +69,10 @@ class TaskDetailSerializer(serializers.ModelSerializer):
 
 
 class TaskCreateSerializer(serializers.ModelSerializer):
-    # ДЗ-13.4: валидация дедлайна (не в прошлом)
+    """
+    Создание/обновление Task. ДЗ-13.4: валидация дедлайна (не в прошлом).
+    Поле category оставляем как PK (как и раньше), оно необязательно (null/blank).
+    """
     def validate_deadline(self, value):
         if value and value < timezone.now().date():
             raise serializers.ValidationError('Deadline cannot be in the past.')
