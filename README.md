@@ -14,13 +14,12 @@
 - GET  /api/ping/            — технический пинг (DRF UI)
 
 ## HW13 — сериализаторы и представления
-Модели: `Category`, `SubTask` (+ у `Task` поле `category`).
-- Вложенность: в `TaskDetail` добавлен массив `subtasks`.
-- Валидация: deadline не может быть в прошлом.
-- Category: проверка уникальности имени.
-- SubTask API (APIView):
-  - GET/POST  /api/v1/tasks/subtasks/
-  - GET/PUT/PATCH/DELETE /api/v1/tasks/subtasks/<id>/
+Модели: SubTask + у Task добавлено поле category (FK на Category).
+TaskDetail содержит вложенный массив subtasks (read-only).
+Валидация: deadline не может быть в прошлом.
+SubTask (APIView):
+GET/POST /api/v1/tasks/subtasks/
+GET/PUT/PATCH/DELETE /api/v1/tasks/subtasks/<id>/
 
 ## HW14 — query params и пагинация
 - GET /api/v1/tasks/by-day/?day=<понедельник|вторник|...|monday|tuesday|...>  
