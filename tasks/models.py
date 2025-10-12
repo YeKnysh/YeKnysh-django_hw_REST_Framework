@@ -6,13 +6,16 @@ from .managers import SoftDeleteManager
 
 
 class Category(models.Model):
-    name = models.CharField(max_length=200, unique=True)
+    # ВАЖНО: без unique=True (см. комментарии ниже)
+    name = models.CharField(max_length=200)
 
     # soft-delete
     is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
-    objects = SoftDeleteManager()  # по умолчанию отдаёт только «живые»
+    # Менеджеры
+    objects = SoftDeleteManager()        # по умолчанию — только «живые»
+    all_objects = models.Manager()       # видит и удалённые (для restore/админки)
 
     class Meta:
         ordering = ['id']
@@ -20,11 +23,22 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+    # Мягкое удаление одной записи
     def delete(self, using=None, keep_parents=False):
-        """Мягкое удаление: помечаем запись удалённой, физически не удаляем."""
         if not self.is_deleted:
             self.is_deleted = True
             self.deleted_at = timezone.now()
+            self.save(update_fields=['is_deleted', 'deleted_at'])
+
+    # Физическое удаление (на всякий случай)
+    def hard_delete(self, using=None, keep_parents=False):
+        return super().delete(using=using, keep_parents=keep_parents)
+
+    # Восстановление
+    def restore(self):
+        if self.is_deleted:
+            self.is_deleted = False
+            self.deleted_at = None
             self.save(update_fields=['is_deleted', 'deleted_at'])
 
 
@@ -39,7 +53,7 @@ class Task(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
     deadline = models.DateField(null=True, blank=True)
 
-    # НОВОЕ: привязка к категории (необязательная, чтобы не ломать старые данные)
+    # привязка к категории (необязательная, чтобы не ломать старые данные)
     category = models.ForeignKey(
         Category,
         on_delete=models.SET_NULL,
@@ -62,7 +76,6 @@ class SubTask(models.Model):
     title = models.CharField(max_length=200)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
 
-    # у тебя это поле используется для сортировки/пагинации — оставляем
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

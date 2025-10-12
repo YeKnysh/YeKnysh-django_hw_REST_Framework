@@ -240,7 +240,7 @@ class SubTaskGVDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = SubTaskSerializer
 
 
-# ============ ДЗ-16: Category ViewSet (CRUD + soft-delete + count_tasks) ============
+# ============ ДЗ-16: Category ViewSet (CRUD + soft-delete + count_tasks + restore) ============
 
 class CategoryViewSet(viewsets.ModelViewSet):
     """
@@ -252,8 +252,9 @@ class CategoryViewSet(viewsets.ModelViewSet):
       - PUT    /api/v1/tasks/categories/<id>/
       - DELETE /api/v1/tasks/categories/<id>/    <-- мягкое удаление
 
-    Кастомный экшен:
+    Кастомные экшены:
       - GET    /api/v1/tasks/categories/<id>/count_tasks/
+      - POST   /api/v1/tasks/categories/<id>/restore/   <-- восстановление
     """
     queryset = Category.objects.all().order_by('id')
 
@@ -274,3 +275,13 @@ class CategoryViewSet(viewsets.ModelViewSet):
         category = self.get_object()
         count = category.tasks.count()
         return Response({'category_id': category.id, 'tasks_count': count})
+
+    @decorators.action(detail=True, methods=['post'])
+    def restore(self, request, pk=None):
+        """Восстановление мягко удалённой категории."""
+        try:
+            category = Category.all_objects.get(pk=pk)  # видим и удалённые
+        except Category.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        category.restore()
+        return Response(CategorySerializer(category).data, status=status.HTTP_200_OK)

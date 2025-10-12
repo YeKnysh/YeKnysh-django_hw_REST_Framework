@@ -211,3 +211,18 @@ DELETE http://127.0.0.1:8000/api/v1/tasks/categories/1/
 
 ### Categories — list (после удаления запись должна исчезнуть)
 GET http://127.0.0.1:8000/api/v1/tasks/categories/
+
+### Categories — restore (восстановить мягко удалённую категорию)
+POST http://127.0.0.1:8000/api/v1/tasks/categories/1/restore/
+
+### Categories — list (после restore запись снова видна)
+GET http://127.0.0.1:8000/api/v1/tasks/categories/
+
+### Categories — create (дубликат имени, ждём 400)
+POST http://127.0.0.1:8000/api/v1/tasks/categories/
+Content-Type: application/json
+
+{
+  "name": "Рабочие задачи"
+}
+
