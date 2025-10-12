@@ -1,13 +1,31 @@
+# tasks/models.py
 from django.db import models
+from django.utils import timezone
+from .managers import SoftDeleteManager
 
 
 class Category(models.Model):
-    """Категория задачи (новое для ДЗ-13)."""
-    name = models.CharField(max_length=100, unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    name = models.CharField(max_length=200, unique=True)
 
-    def __str__(self) -> str:
+    # soft-delete
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = SoftDeleteManager()  # отдаёт только «живые»
+
+    class Meta:
+        # ВАЖНО: никакого created_at здесь нет!
+        ordering = ['id']
+
+    def __str__(self):
         return self.name
+
+    def delete(self, using=None, keep_parents=False):
+        if not self.is_deleted:
+            self.is_deleted = True
+            self.deleted_at = timezone.now()
+            self.save(update_fields=['is_deleted', 'deleted_at'])
+
 
 
 class Task(models.Model):

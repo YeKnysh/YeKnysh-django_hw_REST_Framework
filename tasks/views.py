@@ -198,7 +198,7 @@ class TaskGVListCreateView(ListCreateAPIView):
     POST /api/v1/tasks-gv/        — создать задачу
     (старый функционал из ДЗ-12 остаётся на /api/v1/tasks/)
     """
-    queryset = Task.objects.all().order_by('-id')
+    queryset = Task.objects.select_related('category').order_by('id')
     filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
     filterset_fields = ['status', 'deadline']              # ?status=in_progress&deadline=2025-10-10
     search_fields = ['title', 'description']               # ?search=отчёт

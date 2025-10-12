@@ -38,3 +38,10 @@ GET/PUT/PATCH/DELETE /api/v1/tasks/subtasks/<id>/
   - GET/POST  /api/v1/tasks/subtasks-gv/  (?task=..&status=..&search=..&ordering=.., пагинация)
   - GET/PUT/PATCH/DELETE /api/v1/tasks/subtasks-gv/<id>/
 Используются Search/Ordering/DjangoFilter backends.
+
+## HW17 — Pagination & Logging
+- **Pagination:** Global CursorPagination (6 per page). Проверка: `GET /api/v1/tasks-gv/` → поля `next/previous/results`, по ссылке из `next` открывается следующая «страница».
+- **Logs:**
+  - HTTP → `logs/http_logs.log` (метод, путь, статус)
+  - DB   → `logs/db_logs.log` (SQL SELECT/INSERT/UPDATE)
+
