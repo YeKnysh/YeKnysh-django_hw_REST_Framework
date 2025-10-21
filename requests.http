@@ -180,3 +180,9 @@ Content-Type: application/json
 
 ### SubTasks-GV: удалить
 DELETE http://127.0.0.1:8000/api/v1/tasks/subtasks-gv/1/
+
+### Categories — create
+POST http://127.0.0.1:8000/api/v1/tasks/categories/
+Content-Type: application/json
+
+{ "name": "Работа" }

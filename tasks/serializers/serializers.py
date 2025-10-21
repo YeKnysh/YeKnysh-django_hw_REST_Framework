@@ -1,4 +1,3 @@
-# tasks/serializers.py
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -13,14 +12,14 @@ class SubTaskSerializer(serializers.ModelSerializer):
 
 
 class SubTaskCreateSerializer(serializers.ModelSerializer):
-    # ДЗ-13.1: только для чтения
+    # ДЗ-13.1: делаем только для чтения
     created_at = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = SubTask
         fields = "__all__"
 
-    # ДЗ-13: переопределяем create/update
+    # ДЗ-13: переопределяем create/update (как просили в задании)
     def create(self, validated_data):
         return SubTask.objects.create(**validated_data)
 
@@ -33,28 +32,45 @@ class SubTaskCreateSerializer(serializers.ModelSerializer):
 
 
 # ---------- Category ----------
+class CategorySerializer(serializers.ModelSerializer):
+    """Для list/retrieve (чтение)."""
+    class Meta:
+        model = Category
+        # если есть soft-delete поля в модели — можно показать их как read-only
+        fields = ["id", "name"]
+
+
 class CategoryCreateSerializer(serializers.ModelSerializer):
     """
-    Для create/update — пишем только name.
-    (Так безопасно и для ветки без soft-delete, и для ветки с ним.)
+    Для create/update. Здесь делаем проверку уникальности через
+    ПЕРЕОПРЕДЕЛЁННЫЕ create()/update() — это то, что требовал препод.
     """
     class Meta:
         model = Category
-        fields = ["name"]  # НЕ '__all__' — чтобы не дать писать служебные поля
+        fields = ["name"]
 
-    # ДЗ-13.2: проверка уникальности имени (case-insensitive) для create/update
-    def validate_name(self, value: str):
-        qs = Category.objects.filter(name__iexact=value)
-        if self.instance:
-            qs = qs.exclude(pk=self.instance.pk)
+    def _validate_unique_name(self, name, *, exclude_pk=None):
+        qs = Category.objects.filter(name__iexact=name)
+        if exclude_pk is not None:
+            qs = qs.exclude(pk=exclude_pk)
         if qs.exists():
             raise serializers.ValidationError("Category with this name already exists.")
-        return value
+
+    def create(self, validated_data):
+        name = validated_data.get("name")
+        self._validate_unique_name(name)
+        return Category.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        name = validated_data.get("name", instance.name)
+        self._validate_unique_name(name, exclude_pk=instance.pk)
+        instance.name = name
+        instance.save(update_fields=["name"])
+        return instance
 
 
-# ---------- Task (ДЗ-12 + расширения) ----------
+# ---------- Task ----------
 class TaskListSerializer(serializers.ModelSerializer):
-    # как было в ДЗ-12
     class Meta:
         model = Task
         fields = ["id", "title", "status", "deadline"]
@@ -66,16 +82,15 @@ class TaskDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = "__all__"   # + включит объявленное поле subtasks
+        fields = "__all__"  # subtasks попадёт автоматически
 
 
 class TaskCreateSerializer(serializers.ModelSerializer):
     """
     Создание/обновление Task.
-    - ДЗ-13.4: валидация дедлайна (не в прошлом)
-    - Безопасный queryset у category (фикс для ДЗ-17 и ListCreateAPIView формы)
+    ДЗ-13.4: валидация дедлайна (не в прошлом).
     """
-    # принудительно задаём безопасный порядок для выпадающего списка
+    # чуть приятнее выпадающий список категорий
     category = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.order_by("id"),
         allow_null=True,
@@ -89,10 +104,9 @@ class TaskCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        # как в ДЗ-12 + возможность указать category (необязательно)
         fields = ["title", "description", "status", "deadline", "category"]
 
-    # ДЗ-13: переопределяем create/update
+    # (опционально) тоже переопределим, чтобы соответствовать стилю задания
     def create(self, validated_data):
         return Task.objects.create(**validated_data)
 
