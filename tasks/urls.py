@@ -1,4 +1,6 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
 from tasks.views import (
     # ДЗ-12
     task_create, task_list, task_detail, task_stats,
@@ -9,7 +11,12 @@ from tasks.views import (
     # ДЗ-15 (Generic Views, новые маршруты)
     TaskGVListCreateView, TaskGVDetailView,
     SubTaskGVListCreateView, SubTaskGVDetailView,
+    # HW16
+    CategoryViewSet,
 )
+
+router = DefaultRouter()
+router.register(r'categories', CategoryViewSet, basename='category')
 
 urlpatterns = [
     # ---- Task (ДЗ-12) ----
@@ -31,4 +38,6 @@ urlpatterns = [
 
     path('subtasks-gv/', SubTaskGVListCreateView.as_view(), name='subtask-gv-list-create'),    # GET/POST
     path('subtasks-gv/<int:pk>/', SubTaskGVDetailView.as_view(), name='subtask-gv-detail'),    # GET/PUT/PATCH/DELETE
+    # ---- HW16 (router) ----
+    path('', include(router.urls)),
 ]

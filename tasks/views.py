@@ -1,22 +1,28 @@
-# tasks/views.py
 from django.utils import timezone
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
-from django.db.models.functions import ExtractWeekDay  # ДЗ-14
+from django.db.models.functions import ExtractWeekDay
 
+from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.pagination import PageNumberPagination  # ДЗ-14
+from rest_framework.pagination import PageNumberPagination
 
-# --- ДЗ-15 (Generic Views) ---
+# HW15
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework import filters as drf_filters
 from django_filters.rest_framework import DjangoFilterBackend
 
-from tasks.models import Task, SubTask
+# HW16
+from rest_framework import viewsets, decorators
+
+from tasks.models import Task, SubTask, Category
 from tasks.serializers import (
+    # HW16
+    CategorySerializer,
+    CategoryCreateSerializer,
+    # HW12/13
     TaskListSerializer,
     TaskDetailSerializer,
     TaskCreateSerializer,
@@ -24,8 +30,7 @@ from tasks.serializers import (
     SubTaskCreateSerializer,
 )
 
-# ---------- ДЗ-12: FBV по Task (без изменений) ----------
-
+# ---------- ДЗ-12: FBV по Task ----------
 @api_view(['POST'])
 def task_create(request):
     serializer = TaskCreateSerializer(data=request.data)
@@ -66,31 +71,21 @@ def task_stats(request):
     })
 
 
-# ---------- ДЗ-13: APIView по SubTask (обновлено в ДЗ-14 для пагинации/фильтров) ----------
-
+# ---------- ДЗ-13: APIView по SubTask (+ ДЗ-14: пагинация/фильтры) ----------
 class SubTaskPagination(PageNumberPagination):
-    """ДЗ-14: простая страничная пагинация."""
     page_size = 5
     page_size_query_param = 'page_size'
     max_page_size = 100
 
 
 class SubTaskListCreateView(APIView):
-    """
-    GET  /api/v1/tasks/subtasks/?task=<id>&task_title=<str>&status=<str>&page=<n>
-         — список подзадач (фильтры опциональны), пагинация по 5, сортировка по -created_at
-    POST /api/v1/tasks/subtasks/
-         — создать подзадачу
-    """
     def get(self, request):
         qs = SubTask.objects.all()
 
-        # ДЗ-13 (было): фильтр по id задачи
         task_id = request.query_params.get('task')
         if task_id:
             qs = qs.filter(task_id=task_id)
 
-        # ДЗ-14: дополнительные фильтры
         task_title = request.query_params.get('task_title')
         if task_title:
             qs = qs.filter(task__title__icontains=task_title)
@@ -99,7 +94,6 @@ class SubTaskListCreateView(APIView):
         if status_param:
             qs = qs.filter(status=status_param)
 
-        # ДЗ-14: сортировка и пагинация
         qs = qs.order_by('-created_at')
         paginator = SubTaskPagination()
         page = paginator.paginate_queryset(qs, request, view=self)
@@ -115,12 +109,6 @@ class SubTaskListCreateView(APIView):
 
 
 class SubTaskDetailUpdateDeleteView(APIView):
-    """
-    GET    /api/v1/tasks/subtasks/<pk>/
-    PUT    /api/v1/tasks/subtasks/<pk>/
-    PATCH  /api/v1/tasks/subtasks/<pk>/
-    DELETE /api/v1/tasks/subtasks/<pk>/
-    """
     def get(self, request, pk):
         st = get_object_or_404(SubTask, pk=pk)
         return Response(SubTaskSerializer(st).data, status=status.HTTP_200_OK)
@@ -147,14 +135,8 @@ class SubTaskDetailUpdateDeleteView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# ---------- ДЗ-14: список задач по дню недели (query param) ----------
-
+# ---------- ДЗ-14: список задач по дню недели ----------
 class TaskByWeekdayView(APIView):
-    """
-    GET /api/v1/tasks/by-day/?day=<понедельник|вторник|...|monday|tuesday|...>
-    Если day не передан или не распознан — вернём все задачи.
-    День недели берётся из поля deadline.
-    """
     RU = {
         'вс': 1, 'воскресенье': 1,
         'пн': 2, 'понедельник': 2,
@@ -182,60 +164,60 @@ class TaskByWeekdayView(APIView):
             key = day_raw.strip().lower()
             weekday = self.RU.get(key) or self.EN.get(key)
             if weekday:
-                # ExtractWeekDay: 1=Sunday ... 7=Saturday
                 qs = qs.annotate(wd=ExtractWeekDay('deadline')).filter(wd=weekday)
 
         data = TaskDetailSerializer(qs.order_by('id'), many=True).data
         return Response(data, status=status.HTTP_200_OK)
 
 
-# ===================== ДЗ-15: ДОБАВЛЕНЫ GENERIC VIEWS (НЕ ЗАМЕНЯЮТ СТАРЫЕ) =====================
-
+# ---------- ДЗ-15: Generic Views ----------
 class TaskGVListCreateView(ListCreateAPIView):
-    """
-    Новые generic-вьюхи для задач (HW15).
-    GET  /api/v1/tasks-gv/        — список задач (фильтр/поиск/сорт)
-    POST /api/v1/tasks-gv/        — создать задачу
-    (старый функционал из ДЗ-12 остаётся на /api/v1/tasks/)
-    """
-    queryset = Task.objects.select_related('category').order_by('id')
+    queryset = Task.objects.all().order_by('-id')
     filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
-    filterset_fields = ['status', 'deadline']              # ?status=in_progress&deadline=2025-10-10
-    search_fields = ['title', 'description']               # ?search=отчёт
-    ordering_fields = ['deadline', 'id', 'title']          # ?ordering=-deadline
+    filterset_fields = ['status', 'deadline']
+    search_fields = ['title', 'description']
+    ordering_fields = ['deadline', 'id', 'title']
 
     def get_serializer_class(self):
         return TaskCreateSerializer if self.request.method == 'POST' else TaskListSerializer
 
 
 class TaskGVDetailView(RetrieveUpdateDestroyAPIView):
-    """
-    GET/PUT/PATCH/DELETE /api/v1/tasks-gv/<pk>/
-    """
     queryset = Task.objects.all()
     serializer_class = TaskDetailSerializer
 
 
 class SubTaskGVListCreateView(ListCreateAPIView):
-    """
-    Новые generic-вьюхи для подзадач (HW15).
-    GET  /api/v1/tasks/subtasks-gv/  — список (фильтр/поиск/сорт)
-    POST /api/v1/tasks/subtasks-gv/  — создать
-    (старые APIView остаются на /api/v1/tasks/subtasks/)
-    """
     queryset = SubTask.objects.select_related('task').all().order_by('-created_at', '-id')
     filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
-    filterset_fields = ['task', 'status']                  # ?task=1&status=done
-    search_fields = ['title', 'task__title']               # ?search=подзадача
-    ordering_fields = ['created_at', 'deadline', 'id', 'title', 'status']
+    filterset_fields = ['task', 'status']
+    search_fields = ['title', 'task__title']
+    ordering_fields = ['created_at', 'id', 'title', 'status']
 
     def get_serializer_class(self):
         return SubTaskCreateSerializer if self.request.method == 'POST' else SubTaskSerializer
 
 
 class SubTaskGVDetailView(RetrieveUpdateDestroyAPIView):
-    """
-    GET/PUT/PATCH/DELETE /api/v1/tasks/subtasks-gv/<pk>/
-    """
     queryset = SubTask.objects.select_related('task').all()
     serializer_class = SubTaskSerializer
+
+
+# ---------- ДЗ-16: Category ViewSet ----------
+class CategoryViewSet(viewsets.ModelViewSet):
+    """
+    Роуты через DefaultRouter:
+      - GET/POST    /api/v1/tasks/categories/
+      - GET/PATCH/PUT/DELETE /api/v1/tasks/categories/<id>/
+    """
+    queryset = Category.objects.all().order_by('id')
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return CategoryCreateSerializer
+        return CategorySerializer
+
+    @decorators.action(detail=True, methods=['get'])
+    def count_tasks(self, request, pk=None):
+        category = self.get_object()
+        return Response({'category_id': category.id, 'tasks_count': category.tasks.count()})
