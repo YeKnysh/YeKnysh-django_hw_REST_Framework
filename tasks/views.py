@@ -8,6 +8,9 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
+# + добавь импорт рядом с остальными
+from tasks.pagination import DefaultCursorPagination
+
 
 # HW15
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
@@ -42,8 +45,11 @@ def task_create(request):
 
 @api_view(['GET'])
 def task_list(request):
-    qs = Task.objects.all().order_by('id')
-    return Response(TaskListSerializer(qs, many=True).data)
+    qs = Task.objects.all().order_by('-id')  # синхронно с CursorPagination(ordering='-id')
+    paginator = DefaultCursorPagination()
+    page = paginator.paginate_queryset(qs, request)
+    data = TaskListSerializer(page, many=True).data
+    return paginator.get_paginated_response(data)
 
 
 @api_view(['GET'])
