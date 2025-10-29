@@ -3,6 +3,7 @@ Django settings for django_hw_REST_Framework project.
 """
 
 from pathlib import Path
+from datetime import timedelta
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,9 +18,15 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
     # Без «page/limit» в урле, курсоры безопаснее не “светят” параметры
     'DEFAULT_PAGINATION_CLASS': 'tasks.pagination.DefaultCursorPagination',
-    'PAGE_SIZE': 6,
+    'PAGE_SIZE': 5,
 }
 
 INSTALLED_APPS = [
@@ -93,7 +100,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ===================== HW17: ЛОГИРОВАНИЕ =====================
 LOGS_DIR = BASE_DIR / 'logs'
-os.makedirs(LOGS_DIR, exist_ok=True)   # безопасно создадим папку, если нет
+os.makedirs(LOGS_DIR, exist_ok=True)
 
 LOGGING = {
     'version': 1,
@@ -105,7 +112,6 @@ LOGGING = {
             'style': '{',
         },
         'http': {
-            # запросы runserver (django.server) печатает уже готовыми строками — оставляем компактный формат
             'format': '[{asctime}] {levelname} {message}',
             'style': '{',
         },
@@ -135,22 +141,25 @@ LOGGING = {
     },
 
     'loggers': {
-        # 1) Логи запущенного сервера (запросы/статусы) -> консоль + файл logs/http_logs.log
         'django.server': {
             'handlers': ['console', 'http_file'],
             'level': 'INFO',
             'propagate': False,
         },
-        # 2) SQL-запросы -> файл logs/db_logs.log
         'django.db.backends': {
             'handlers': ['db_file'],
-            'level': 'DEBUG',     # DEBUG — чтобы писать текст SQL
+            'level': 'DEBUG',
             'propagate': False,
         },
-        # Базовый логгер (на всё остальное) — в консоль
         'django': {
             'handlers': ['console'],
             'level': 'INFO',
         },
     },
+}
+
+# --- JWT lifetimes ---
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
