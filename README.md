@@ -57,6 +57,20 @@
   - `logs/db_logs.log` — SQL-запросы (INSERT/SELECT/UPDATE) с временем.
   - Логи запуска сервера — в консоль.
 
+### HW18 — JWT + permissions + пагинация 5/стр.
+
+- **Auth**: SimpleJWT (`JWTAuthentication`)  
+- **Permissions**: `IsAuthenticated` (по умолчанию)  
+- **Pagination**: `CursorPagination`, `page_size = 5`, `ordering = -id`
+
+**JWT эндпоинты:**
+- `POST /api/v1/auth/jwt/create/` — `{username, password} → {access, refresh}`
+- `POST /api/v1/auth/jwt/refresh/` — `{refresh} → {access}`
+- `POST /api/v1/auth/jwt/verify/` — `{token} → 200/401`
+
+**Проверка (Postman):**
+- Без токена `GET /api/v1/tasks/` → **401**
+- С токеном `GET /api/v1/tasks/` → **200**, есть `next/previous/results`, в `results` ≤ **5**
 ---
 
 ## Быстрая проверка (PyCharm HTTP Client)
