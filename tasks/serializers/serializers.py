@@ -6,21 +6,23 @@ from tasks.models import Task, SubTask, Category
 
 # ---------- SubTask ----------
 class SubTaskSerializer(serializers.ModelSerializer):
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = SubTask
         fields = "__all__"
 
 
 class SubTaskCreateSerializer(serializers.ModelSerializer):
-    # ДЗ-13.1: делаем только для чтения
     created_at = serializers.DateTimeField(read_only=True)
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = SubTask
         fields = "__all__"
 
-    # ДЗ-13: переопределяем create/update (как просили в задании)
     def create(self, validated_data):
+        # owner будем выставлять в представлении; здесь просто создаём
         return SubTask.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
@@ -33,18 +35,12 @@ class SubTaskCreateSerializer(serializers.ModelSerializer):
 
 # ---------- Category ----------
 class CategorySerializer(serializers.ModelSerializer):
-    """Для list/retrieve (чтение)."""
     class Meta:
         model = Category
-        # если есть soft-delete поля в модели — можно показать их как read-only
         fields = ["id", "name"]
 
 
 class CategoryCreateSerializer(serializers.ModelSerializer):
-    """
-    Для create/update. Здесь делаем проверку уникальности через
-    ПЕРЕОПРЕДЕЛЁННЫЕ create()/update() — это то, что требовал препод.
-    """
     class Meta:
         model = Category
         fields = ["name"]
@@ -71,31 +67,30 @@ class CategoryCreateSerializer(serializers.ModelSerializer):
 
 # ---------- Task ----------
 class TaskListSerializer(serializers.ModelSerializer):
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Task
-        fields = ["id", "title", "status", "deadline"]
+        fields = ["id", "title", "status", "deadline", "owner"]
 
 
 class TaskDetailSerializer(serializers.ModelSerializer):
-    # ДЗ-13.3: вложенные подзадачи (read_only)
     subtasks = SubTaskSerializer(many=True, read_only=True)
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Task
-        fields = "__all__"  # subtasks попадёт автоматически
+        fields = "__all__"
 
 
 class TaskCreateSerializer(serializers.ModelSerializer):
-    """
-    Создание/обновление Task.
-    ДЗ-13.4: валидация дедлайна (не в прошлом).
-    """
-    # чуть приятнее выпадающий список категорий
+    # category выпадающий список
     category = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.order_by("id"),
         allow_null=True,
         required=False,
     )
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
 
     def validate_deadline(self, value):
         if value and value < timezone.now().date():
@@ -104,9 +99,8 @@ class TaskCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = ["title", "description", "status", "deadline", "category"]
+        fields = ["title", "description", "status", "deadline", "category", "owner"]
 
-    # (опционально) тоже переопределим, чтобы соответствовать стилю задания
     def create(self, validated_data):
         return Task.objects.create(**validated_data)
 
