@@ -34,25 +34,25 @@ class Task(models.Model):
         IN_PROGRESS = 'in_progress', 'In progress'
         DONE = 'done', 'Done'
 
+    # ВАЖНО для HW19: владелец задачи
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='tasks',
+        null=True, blank=True,   # ставим null=True, чтобы миграция прошла без выбора дефолта
+    )
+
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
     deadline = models.DateField(null=True, blank=True)
 
-    # HW13: optional category
+    # ДЗ-13: опциональная категория
     category = models.ForeignKey(
         Category,
         null=True, blank=True,
         on_delete=models.SET_NULL,
-        related_name='tasks',
-    )
-
-    # HW19: владельцe задачи
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True, blank=True,
-        on_delete=models.CASCADE,
-        related_name='tasks',
+        related_name='tasks'
     )
 
     def __str__(self) -> str:
@@ -60,19 +60,20 @@ class Task(models.Model):
 
 
 class SubTask(models.Model):
-    """Подзадача (HW13)."""
+    """Подзадача (новое для ДЗ-13)."""
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='subtasks')
+
+    # ВАЖНО для HW19: владелец подзадачи (используем в проверках + create)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='subtasks',
+        null=True, blank=True,
+    )
+
     title = models.CharField(max_length=200)
     status = models.CharField(max_length=20, choices=Task.Status.choices, default=Task.Status.NEW)
     created_at = models.DateTimeField(auto_now_add=True)
-
-    # HW19: владелец подзадачи (будем ставить тот же, что у task)
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True, blank=True,
-        on_delete=models.CASCADE,
-        related_name='subtasks',
-    )
 
     def __str__(self) -> str:
         return f'{self.title} (task #{self.task_id})'

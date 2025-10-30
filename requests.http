@@ -186,3 +186,25 @@ POST http://127.0.0.1:8000/api/v1/tasks/categories/
 Content-Type: application/json
 
 { "name": "Работа" }
+
+### Get JWT
+POST http://127.0.0.1:8000/api/v1/auth/jwt/create/
+Content-Type: application/json
+
+{"username":"admin","password":"adminpass"}
+
+### Protected endpoint (paste access below)
+GET http://127.0.0.1:8000/api/v1/tasks/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzYxNzY4ODIxLCJpYXQiOjE3NjE3NjcwMjEsImp0aSI6ImZlMGY5NzY0NDVjNDRjN2Q4MTlkYzhjYmRhMjkxYTQ4IiwidXNlcl9pZCI6IjEifQ.9GjuEIoK1X4QXUAU-QXIk6vXxxJMSAPEZTaTjPifBz0
+
+### Refresh
+POST http://127.0.0.1:8000/api/v1/auth/jwt/refresh/
+Content-Type: application/json
+
+{"refresh":"<PASTE_REFRESH_TOKEN_HERE>"}
+
+### Verify
+POST http://127.0.0.1:8000/api/v1/auth/jwt/verify/
+Content-Type: application/json
+
+{"token":"<PASTE_ACCESS_OR_REFRESH>"}

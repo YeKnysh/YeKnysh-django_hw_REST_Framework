@@ -2,13 +2,11 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from tasks.views import (
-    # ДЗ-12
-    task_create, task_list, task_detail, task_stats,
-    # ДЗ-13
+    # FBV (HW12/14)
+    task_create, task_list, task_detail, task_stats, TaskByWeekdayView,
+    # APIView (HW13)
     SubTaskListCreateView, SubTaskDetailUpdateDeleteView,
-    # ДЗ-14
-    TaskByWeekdayView,
-    # ДЗ-15 (Generic Views, новые маршруты)
+    # Generic Views (HW15)
     TaskGVListCreateView, TaskGVDetailView,
     SubTaskGVListCreateView, SubTaskGVDetailView,
     # HW16
@@ -19,25 +17,28 @@ router = DefaultRouter()
 router.register(r'categories', CategoryViewSet, basename='category')
 
 urlpatterns = [
-    # ---- Task (ДЗ-12) ----
-    path('', task_list, name='task-list'),                       # GET  /api/v1/tasks/
-    path('create/', task_create, name='task-create'),            # POST /api/v1/tasks/create/
-    path('stats/', task_stats, name='task-stats'),               # GET  /api/v1/tasks/stats/
-    path('<int:pk>/', task_detail, name='task-detail'),          # GET  /api/v1/tasks/1/
+    # ----- ОСНОВНЫЕ РОУТЫ ДЛЯ TASK (GV: List/Create + Detail/Update/Delete) -----
+    path('', TaskGVListCreateView.as_view(), name='task-list-create'),          # GET list / POST create
+    path('<int:pk>/', TaskGVDetailView.as_view(), name='task-detail'),          # GET / PUT / PATCH / DELETE
 
-    # ---- Task by weekday (ДЗ-14) ----
-    path('by-day/', TaskByWeekdayView.as_view(), name='task-by-day'),  # GET /api/v1/tasks/by-day/?day=tuesday
+    # Вспомогательные
+    path('stats/', task_stats, name='task-stats'),
+    path('by-day/', TaskByWeekdayView.as_view(), name='task-by-day'),
 
-    # ---- SubTask (ДЗ-13) ----
-    path('subtasks/', SubTaskListCreateView.as_view(), name='subtask-list-create'),            # GET/POST
-    path('subtasks/<int:pk>/', SubTaskDetailUpdateDeleteView.as_view(), name='subtask-udr'),   # GET/PUT/PATCH/DELETE
+    # ----- SUBTASKS -----
+    # APIView (HW13)
+    path('subtasks/', SubTaskListCreateView.as_view(), name='subtask-list-create'),
+    path('subtasks/<int:pk>/', SubTaskDetailUpdateDeleteView.as_view(), name='subtask-udr'),
 
-    # ---- ДЗ-15: Generic Views (параллельные маршруты, прошлое не трогаем) ----
-    path('tasks-gv/', TaskGVListCreateView.as_view(), name='task-gv-list-create'),             # GET/POST
-    path('tasks-gv/<int:pk>/', TaskGVDetailView.as_view(), name='task-gv-detail'),             # GET/PUT/PATCH/DELETE
+    # Generic Views (HW15) — альтернативные маршруты
+    path('subtasks-gv/', SubTaskGVListCreateView.as_view(), name='subtask-gv-list-create'),
+    path('subtasks-gv/<int:pk>/', SubTaskGVDetailView.as_view(), name='subtask-gv-detail'),
 
-    path('subtasks-gv/', SubTaskGVListCreateView.as_view(), name='subtask-gv-list-create'),    # GET/POST
-    path('subtasks-gv/<int:pk>/', SubTaskGVDetailView.as_view(), name='subtask-gv-detail'),    # GET/PUT/PATCH/DELETE
-    # ---- HW16 (router) ----
+    # ----- СТАРЫЕ FBV ДЛЯ TASK (чтобы ничего не ломать) -----
+    path('fbv/', task_list, name='task-list-fbv'),                  # GET
+    path('fbv/create/', task_create, name='task-create-fbv'),       # POST
+    path('fbv/<int:pk>/', task_detail, name='task-detail-fbv'),     # GET
+
+    # ----- HW16: router (categories) -----
     path('', include(router.urls)),
 ]

@@ -1,12 +1,8 @@
-from django.urls import path, include
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-
-@api_view(['GET'])
-def ping(request):
-    return Response({'status': 'ok'})
+# api/urls.py
+from django.urls import path
+from .views import ping, whoami
 
 urlpatterns = [
-    path('api/v1/tasks/', include('tasks.urls')),
-    path('api/ping/', ping, name='ping'),
+    path('ping/', ping, name='ping'),                     # -> /api/ping/
+    path('v1/auth/whoami/', whoami, name='whoami'),       # -> /api/v1/auth/whoami/
 ]

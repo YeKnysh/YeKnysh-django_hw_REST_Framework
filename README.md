@@ -71,6 +71,20 @@
 **Проверка (Postman):**
 - Без токена `GET /api/v1/tasks/` → **401**
 - С токеном `GET /api/v1/tasks/` → **200**, есть `next/previous/results`, в `results` ≤ **5**
+
+### HW19 — JWT + Permissions + Docs
+
+- Auth: SimpleJWT (`/api/v1/auth/jwt/create|refresh|verify`)
+- WhoAmI: `GET /api/v1/whoami/` — возвращает текущего пользователя (по JWT)
+- Tasks: доступ **только** к своим задачам (создание проставляет `owner` из `request.user`)
+- Permissions: без JWT → 401; с JWT → 200/201/204 (только свои объекты)
+- Docs: Swagger `/swagger/`, ReDoc `/redoc/`
+
+**Проверено в Postman:**
+- 401 на `GET /api/v1/tasks/` без авторизации
+- 200 на `GET /api/v1/tasks/` с JWT
+- 201 на `POST /api/v1/tasks/` с JWT
+- 200 на повторный `GET /api/v1/tasks/` — созданная задача видна
 ---
 
 ## Быстрая проверка (PyCharm HTTP Client)

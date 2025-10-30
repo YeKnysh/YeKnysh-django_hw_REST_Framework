@@ -3,49 +3,55 @@ from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.db.models.functions import ExtractWeekDay
 
-from rest_framework import status
+from rest_framework import status, viewsets, decorators, filters as drf_filters
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
-# + добавь импорт рядом с остальными
-from tasks.pagination import DefaultCursorPagination
-
-
-# HW15
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-from rest_framework import filters as drf_filters
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import (
+    ListCreateAPIView, RetrieveUpdateDestroyAPIView
+)
 from django_filters.rest_framework import DjangoFilterBackend
 
-# HW16
-from rest_framework import viewsets, decorators
-
+from tasks.pagination import DefaultCursorPagination
 from tasks.models import Task, SubTask, Category
 from tasks.serializers import (
-    # HW16
-    CategorySerializer,
-    CategoryCreateSerializer,
-    # HW12/13
-    TaskListSerializer,
-    TaskDetailSerializer,
-    TaskCreateSerializer,
-    SubTaskSerializer,
-    SubTaskCreateSerializer,
+    CategorySerializer, CategoryCreateSerializer,
+    TaskListSerializer, TaskDetailSerializer, TaskCreateSerializer,
+    SubTaskSerializer, SubTaskCreateSerializer,
 )
+from tasks.permissions import IsOwnerOrReadOnly
 
-# ---------- ДЗ-12: FBV по Task ----------
+
+# ---------- доказательный эндпоинт: кто я ----------
+class WhoAmIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        u = request.user
+        return Response(
+            {"id": u.id, "username": u.username, "email": u.email, "is_staff": u.is_staff},
+            status=status.HTTP_200_OK,
+        )
+
+
+# ---------- HW12: FBV Task ----------
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def task_create(request):
     serializer = TaskCreateSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save()
+        serializer.save(owner=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def task_list(request):
-    qs = Task.objects.all().order_by('-id')  # синхронно с CursorPagination(ordering='-id')
+    qs = Task.objects.filter(owner=request.user).order_by('-id')
     paginator = DefaultCursorPagination()
     page = paginator.paginate_queryset(qs, request)
     data = TaskListSerializer(page, many=True).data
@@ -53,31 +59,34 @@ def task_list(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def task_detail(request, pk: int):
-    try:
-        task = Task.objects.get(pk=pk)
-    except Task.DoesNotExist:
-        return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
-    return Response(TaskDetailSerializer(task).data)
+    task = get_object_or_404(Task.objects.filter(owner=request.user), pk=pk)
+    return Response(TaskDetailSerializer(task).data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def task_stats(request):
-    total = Task.objects.count()
-    by_status_raw = Task.objects.values('status').annotate(count=Count('id'))
+    base_qs = Task.objects.filter(owner=request.user)
+    total = base_qs.count()
+    by_status_raw = base_qs.values('status').annotate(count=Count('id'))
     by_status = {row['status']: row['count'] for row in by_status_raw}
 
     today = timezone.now().date()
-    overdue = Task.objects.filter(deadline__lt=today).exclude(status=Task.Status.DONE).count()
+    overdue = base_qs.filter(deadline__lt=today).exclude(status=Task.Status.DONE).count()
 
-    return Response({
-        'total_tasks': total,
-        'by_status': by_status,
-        'overdue_tasks': overdue,
-    })
+    return Response(
+        {
+            'total_tasks': total,
+            'by_status': by_status,
+            'overdue_tasks': overdue,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
-# ---------- ДЗ-13: APIView по SubTask (+ ДЗ-14: пагинация/фильтры) ----------
+# ---------- HW13: APIView SubTask (+ HW14 filters/pagination) ----------
 class SubTaskPagination(PageNumberPagination):
     page_size = 5
     page_size_query_param = 'page_size'
@@ -85,8 +94,10 @@ class SubTaskPagination(PageNumberPagination):
 
 
 class SubTaskListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        qs = SubTask.objects.all()
+        qs = SubTask.objects.filter(task__owner=request.user)
 
         task_id = request.query_params.get('task')
         if task_id:
@@ -100,7 +111,7 @@ class SubTaskListCreateView(APIView):
         if status_param:
             qs = qs.filter(status=status_param)
 
-        qs = qs.order_by('-created_at')
+        qs = qs.order_by('-created_at', '-id')
         paginator = SubTaskPagination()
         page = paginator.paginate_queryset(qs, request, view=self)
         data = SubTaskSerializer(page, many=True).data
@@ -109,40 +120,59 @@ class SubTaskListCreateView(APIView):
     def post(self, request):
         serializer = SubTaskCreateSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            task = serializer.validated_data.get('task')
+            if task.owner_id != request.user.id:
+                return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+            serializer.save(owner=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class SubTaskDetailUpdateDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, pk, user):
+        return get_object_or_404(
+            SubTask.objects.select_related('task').filter(task__owner=user),
+            pk=pk,
+        )
+
     def get(self, request, pk):
-        st = get_object_or_404(SubTask, pk=pk)
+        st = self._get(pk, request.user)
         return Response(SubTaskSerializer(st).data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
-        st = get_object_or_404(SubTask, pk=pk)
+        st = self._get(pk, request.user)
         serializer = SubTaskCreateSerializer(st, data=request.data)
         if serializer.is_valid():
+            new_task = serializer.validated_data.get('task', st.task)
+            if new_task.owner_id != request.user.id:
+                return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request, pk):
-        st = get_object_or_404(SubTask, pk=pk)
+        st = self._get(pk, request.user)
         serializer = SubTaskCreateSerializer(st, data=request.data, partial=True)
         if serializer.is_valid():
+            new_task = serializer.validated_data.get('task', st.task)
+            if new_task.owner_id != request.user.id:
+                return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
-        st = get_object_or_404(SubTask, pk=pk)
+        st = self._get(pk, request.user)
         st.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# ---------- ДЗ-14: список задач по дню недели ----------
+# ---------- HW14: tasks by weekday ----------
 class TaskByWeekdayView(APIView):
+    permission_classes = [IsAuthenticated]
+
     RU = {
         'вс': 1, 'воскресенье': 1,
         'пн': 2, 'понедельник': 2,
@@ -164,7 +194,7 @@ class TaskByWeekdayView(APIView):
 
     def get(self, request):
         day_raw = request.query_params.get('day')
-        qs = Task.objects.all()
+        qs = Task.objects.filter(owner=request.user)
 
         if day_raw:
             key = day_raw.strip().lower()
@@ -176,46 +206,80 @@ class TaskByWeekdayView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
-# ---------- ДЗ-15: Generic Views ----------
+# ---------- HW15: Generic Views ----------
 class TaskGVListCreateView(ListCreateAPIView):
-    queryset = Task.objects.all().order_by('-id')
+    permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
     filterset_fields = ['status', 'deadline']
     search_fields = ['title', 'description']
     ordering_fields = ['deadline', 'id', 'title']
 
+    def get_queryset(self):
+        # показываем только свои задачи
+        return Task.objects.filter(owner=self.request.user).order_by('-id')
+
     def get_serializer_class(self):
         return TaskCreateSerializer if self.request.method == 'POST' else TaskListSerializer
 
+    def perform_create(self, serializer):
+        # фиксируем владельца создаваемой задачи
+        serializer.save(owner=self.request.user)
+
 
 class TaskGVDetailView(RetrieveUpdateDestroyAPIView):
-    queryset = Task.objects.all()
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
     serializer_class = TaskDetailSerializer
+
+    def get_queryset(self):
+        # доступ только к своим объектам
+        return Task.objects.filter(owner=self.request.user)
 
 
 class SubTaskGVListCreateView(ListCreateAPIView):
-    queryset = SubTask.objects.select_related('task').all().order_by('-created_at', '-id')
+    permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
     filterset_fields = ['task', 'status']
     search_fields = ['title', 'task__title']
     ordering_fields = ['created_at', 'id', 'title', 'status']
 
+    def get_queryset(self):
+        # список только подзадач своих задач
+        return (
+            SubTask.objects
+            .select_related('task')
+            .filter(task__owner=self.request.user)
+            .order_by('-created_at', '-id')
+        )
+
     def get_serializer_class(self):
         return SubTaskCreateSerializer if self.request.method == 'POST' else SubTaskSerializer
 
+    def perform_create(self, serializer):
+        # запрещаем создавать подзадачу на чужой задаче
+        task = serializer.validated_data.get('task')
+        if task and task.owner_id != self.request.user.id:
+            raise PermissionDenied("You cannot create a subtask for a foreign task.")
+        serializer.save(owner=self.request.user)
+
 
 class SubTaskGVDetailView(RetrieveUpdateDestroyAPIView):
-    queryset = SubTask.objects.select_related('task').all()
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
     serializer_class = SubTaskSerializer
 
+    def get_queryset(self):
+        # доступ только к подзадачам своих задач
+        return SubTask.objects.select_related('task').filter(task__owner=self.request.user)
 
-# ---------- ДЗ-16: Category ViewSet ----------
+    def perform_update(self, serializer):
+        # запрещаем переносить подзадачу на чужую задачу
+        new_task = serializer.validated_data.get('task')
+        if new_task and new_task.owner_id != self.request.user.id:
+            raise PermissionDenied("You cannot reassign a subtask to a foreign task.")
+        serializer.save()
+
+
+# ---------- HW16: Category ViewSet ----------
 class CategoryViewSet(viewsets.ModelViewSet):
-    """
-    Роуты через DefaultRouter:
-      - GET/POST    /api/v1/tasks/categories/
-      - GET/PATCH/PUT/DELETE /api/v1/tasks/categories/<id>/
-    """
     queryset = Category.objects.all().order_by('id')
 
     def get_serializer_class(self):
@@ -226,4 +290,4 @@ class CategoryViewSet(viewsets.ModelViewSet):
     @decorators.action(detail=True, methods=['get'])
     def count_tasks(self, request, pk=None):
         category = self.get_object()
-        return Response({'category_id': category.id, 'tasks_count': category.tasks.count()})
+        return Response({'category_id': category.id, 'tasks_count': category.tasks.count()}, status=status.HTTP_200_OK)

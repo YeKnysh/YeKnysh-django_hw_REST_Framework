@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     # local apps
     'api',
     'tasks',
+    'drf_yasg',
+
 ]
 
 MIDDLEWARE = [
