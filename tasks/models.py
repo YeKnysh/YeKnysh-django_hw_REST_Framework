@@ -1,6 +1,7 @@
 # tasks/models.py
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 from .managers import SoftDeleteManager
 
 
@@ -27,7 +28,6 @@ class Category(models.Model):
             self.save(update_fields=['is_deleted', 'deleted_at'])
 
 
-
 class Task(models.Model):
     class Status(models.TextChoices):
         NEW = 'new', 'New'
@@ -39,12 +39,20 @@ class Task(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
     deadline = models.DateField(null=True, blank=True)
 
-    # Новое поле для ДЗ-13: опциональная категория (не ломает существующие данные)
+    # HW13: optional category
     category = models.ForeignKey(
         Category,
         null=True, blank=True,
         on_delete=models.SET_NULL,
-        related_name='tasks'
+        related_name='tasks',
+    )
+
+    # HW19: владельцe задачи
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.CASCADE,
+        related_name='tasks',
     )
 
     def __str__(self) -> str:
@@ -52,11 +60,19 @@ class Task(models.Model):
 
 
 class SubTask(models.Model):
-    """Подзадача (новое для ДЗ-13)."""
+    """Подзадача (HW13)."""
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='subtasks')
     title = models.CharField(max_length=200)
     status = models.CharField(max_length=20, choices=Task.Status.choices, default=Task.Status.NEW)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # HW19: владелец подзадачи (будем ставить тот же, что у task)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.CASCADE,
+        related_name='subtasks',
+    )
 
     def __str__(self) -> str:
         return f'{self.title} (task #{self.task_id})'
