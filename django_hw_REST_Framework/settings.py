@@ -1,7 +1,10 @@
 """
 Django settings for django_hw_REST_Framework project.
 """
+
 from pathlib import Path
+from datetime import timedelta
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -9,25 +12,25 @@ SECRET_KEY = 'django-insecure--670u0hjvk8x--p6gx@l!6_%-ttbwf=q*@xbl%%)7ydxml)mo^
 DEBUG = True
 ALLOWED_HOSTS: list[str] = []
 
-# ===== DRF (рендеры, пагинация, фильтры/поиск/сорт) =====
+# --- DRF + глобальная пагинация (HW17: CursorPagination) ---
 REST_FRAMEWORK = {
-    # как и раньше
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
-    # ДЗ-15: глобальная пагинация для generic views
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 5,  # страница по 5 элементов (можно переопределять в вью)
-    # ДЗ-15: фильтры/поиск/сортировка для generic views
-    'DEFAULT_FILTER_BACKENDS': [
-        'rest_framework.filters.SearchFilter',
-        'rest_framework.filters.OrderingFilter',
-        'django_filters.rest_framework.DjangoFilterBackend',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    # Без «page/limit» в урле, курсоры безопаснее не “светят” параметры
+    'DEFAULT_PAGINATION_CLASS': 'tasks.pagination.DefaultCursorPagination',
+    'PAGE_SIZE': 5,
 }
 
 INSTALLED_APPS = [
+    # django
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -37,11 +40,13 @@ INSTALLED_APPS = [
 
     # third-party
     'rest_framework',
-    'django_filters',          # <-- добавлено для фильтрации в generic views
+    'django_filters',          # <- для фильтров в Generic Views
 
     # local apps
     'api',
     'tasks',
+    'drf_yasg',
+
 ]
 
 MIDDLEWARE = [
@@ -93,5 +98,70 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ===================== HW17: ЛОГИРОВАНИЕ =====================
+LOGS_DIR = BASE_DIR / 'logs'
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+        'http': {
+            'format': '[{asctime}] {levelname} {message}',
+            'style': '{',
+        },
+        'db': {
+            'format': '[{asctime}] {levelname} SQL: {message}',
+            'style': '{',
+        },
+    },
+
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'http_file': {
+            'class': 'logging.FileHandler',
+            'filename': str(LOGS_DIR / 'http_logs.log'),
+            'encoding': 'utf-8',
+            'formatter': 'http',
+        },
+        'db_file': {
+            'class': 'logging.FileHandler',
+            'filename': str(LOGS_DIR / 'db_logs.log'),
+            'encoding': 'utf-8',
+            'formatter': 'db',
+        },
+    },
+
+    'loggers': {
+        'django.server': {
+            'handlers': ['console', 'http_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['db_file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+    },
+}
+
+# --- JWT lifetimes ---
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+}
