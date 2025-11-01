@@ -118,8 +118,23 @@
 5. `POST /api/v1/auth/refresh/` (пустое тело) → 200, куки обновились.  
 6. `POST /api/v1/auth/logout/` → 200, куки очищены; `whoami` → 401.
 
----
 
+## HW21 — Signals: e-mail при смене статуса задачи
+
+**Что сделано**
+- Сигналы `pre_save`/`post_save` для `Task`:
+  - письмо владельцу (в консоль) только при **реальном изменении** поля `status`;
+  - не стреляет на создание задачи и при повторных сохранениях с тем же статусом;
+  - если у владельца нет e-mail — пропускаем.
+- Настройка почты: `EMAIL_BACKEND = console`, `DEFAULT_FROM_EMAIL = Task Manager <noreply@localhost>`.
+- `TasksConfig.ready()` регистрирует сигналы.
+
+**Как проверить (Postman)**
+1. Логин (httpOnly cookies, как в HW20).
+2. `POST /api/v1/tasks/` → создать задачу (`status: "new"`).
+3. `PATCH /api/v1/tasks/<id>/` → `{ "status": "in_progress" }` → в консоли `runserver` появляется письмо.
+4. Повторить тот же `PATCH` → письма нет.
+5. `PATCH /api/v1/tasks/<id>/` → `{ "status": "done" }` → пи
 ---
 
 ## Быстрая проверка (PyCharm HTTP Client)

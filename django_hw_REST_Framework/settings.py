@@ -19,7 +19,7 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # ↓ добавлено: читаем access из httpOnly cookie, если нет Authorization header
+        # читаем access из httpOnly cookie, если нет Authorization header
         'accounts.authentication.CookieJWTAuthentication',
         # fallback по заголовку Authorization: Bearer <access>
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -47,7 +47,7 @@ INSTALLED_APPS = [
 
     # local apps
     'api',
-    'tasks',
+    'tasks.apps.TasksConfig',  # <- важно для срабатывания signals в ready()
     'drf_yasg',
     'accounts',  # <- наш app для auth эндпоинтов/классов
 
@@ -165,6 +165,10 @@ LOGGING = {
         },
     },
 }
+
+# --- Email (HW21): консольный backend, чтобы письма печатались в runserver ---
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'Task Manager <noreply@localhost>'
 
 # --- JWT lifetimes + rotation/blacklist + cookie-ключи (HW20) ---
 SIMPLE_JWT = {
