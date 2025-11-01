@@ -28,6 +28,7 @@ urlpatterns = [
     # твои API
     path('api/v1/tasks/', include('tasks.urls')),
     path('api/', include('api.urls')),
+    path("api/v1/auth/", include("accounts.urls", namespace="accounts")),
 
     # JWT
     path('api/v1/auth/jwt/create/',  TokenObtainPairView.as_view(), name='jwt_create'),

@@ -85,6 +85,56 @@
 - 200 на `GET /api/v1/tasks/` с JWT
 - 201 на `POST /api/v1/tasks/` с JWT
 - 200 на повторный `GET /api/v1/tasks/` — созданная задача видна
+
+## HW20 — Auth via JWT (httpOnly cookies): регистрация / логин / рефреш / логаут + blacklist
+
+**Что сделано**
+- Регистрация пользователя с валидацией пароля (Django validators), уникальностью `username`/`email`, хэшированием (`set_password`).
+- Логин по `username` **или** `email` → выдаём JWT **access/refresh** и кладём их в **httpOnly cookies**: `access`, `refresh`.
+- Рефреш: `POST /api/v1/auth/refresh/` — работает **из cookie** (тело не обязательно). Включена ротация и **blacklist старого refresh**.
+- Логаут: `POST /api/v1/auth/logout/` — кладёт текущий refresh в blacklist и очищает cookies.
+- DRF берёт токен из cookie через `accounts.authentication.CookieJWTAuthentication` (fallback по Header тоже есть).
+- Подключён `rest_framework_simplejwt.token_blacklist`.
+
+**Ключевые настройки**
+- `SIMPLE_JWT`: `ROTATE_REFRESH_TOKENS=True`, `BLACKLIST_AFTER_ROTATION=True`, cookie-ключи `AUTH_COOKIE`, `AUTH_COOKIE_REFRESH`.
+- `INSTALLED_APPS`: `accounts`, `rest_framework_simplejwt.token_blacklist`.
+- `DEFAULT_AUTHENTICATION_CLASSES`:  
+  `accounts.authentication.CookieJWTAuthentication`,  
+  `rest_framework_simplejwt.authentication.JWTAuthentication`.
+
+**Эндпоинты (HW20)**
+- `POST /api/v1/auth/register/` — регистрация (`username`, `email`, `password`, `password2`).
+- `POST /api/v1/auth/login/` — логин (`login`, `password`) → ставит куки `access`/`refresh`.
+- `POST /api/v1/auth/refresh/` — рефреш из cookie (или из тела).
+- `POST /api/v1/auth/logout/` — blacklist + очистка cookies.
+- Проверка авторизации: `GET /api/v1/tasks/whoami/` → `{id, username, email}` (требует JWT).
+
+**Как проверить (Postman, кратко)**
+1. **Новое окружение**: `base_url=http://127.0.0.1:8000`, `username`, `email`, `password`.  
+2. `POST /api/v1/auth/register/` → 201.  
+3. `POST /api/v1/auth/login/` → 200, в Cookies появляются `access`/`refresh`.  
+4. `GET /api/v1/tasks/whoami/` (No Auth) → 200.  
+5. `POST /api/v1/auth/refresh/` (пустое тело) → 200, куки обновились.  
+6. `POST /api/v1/auth/logout/` → 200, куки очищены; `whoami` → 401.
+
+
+## HW21 — Signals: e-mail при смене статуса задачи
+
+**Что сделано**
+- Сигналы `pre_save`/`post_save` для `Task`:
+  - письмо владельцу (в консоль) только при **реальном изменении** поля `status`;
+  - не стреляет на создание задачи и при повторных сохранениях с тем же статусом;
+  - если у владельца нет e-mail — пропускаем.
+- Настройка почты: `EMAIL_BACKEND = console`, `DEFAULT_FROM_EMAIL = Task Manager <noreply@localhost>`.
+- `TasksConfig.ready()` регистрирует сигналы.
+
+**Как проверить (Postman)**
+1. Логин (httpOnly cookies, как в HW20).
+2. `POST /api/v1/tasks/` → создать задачу (`status: "new"`).
+3. `PATCH /api/v1/tasks/<id>/` → `{ "status": "in_progress" }` → в консоли `runserver` появляется письмо.
+4. Повторить тот же `PATCH` → письма нет.
+5. `PATCH /api/v1/tasks/<id>/` → `{ "status": "done" }` → пи
 ---
 
 ## Быстрая проверка (PyCharm HTTP Client)

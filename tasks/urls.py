@@ -1,7 +1,10 @@
+# tasks/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from tasks.views import (
+    # whoami
+    WhoAmIView,
     # FBV (HW12/14)
     task_create, task_list, task_detail, task_stats, TaskByWeekdayView,
     # APIView (HW13)
@@ -17,6 +20,9 @@ router = DefaultRouter()
 router.register(r'categories', CategoryViewSet, basename='category')
 
 urlpatterns = [
+    # ----- WHOAMI (JWT cookie) -----
+    path('whoami/', WhoAmIView.as_view(), name='whoami'),
+
     # ----- ОСНОВНЫЕ РОУТЫ ДЛЯ TASK (GV: List/Create + Detail/Update/Delete) -----
     path('', TaskGVListCreateView.as_view(), name='task-list-create'),          # GET list / POST create
     path('<int:pk>/', TaskGVDetailView.as_view(), name='task-detail'),          # GET / PUT / PATCH / DELETE
@@ -26,7 +32,6 @@ urlpatterns = [
     path('by-day/', TaskByWeekdayView.as_view(), name='task-by-day'),
 
     # ----- SUBTASKS -----
-    # APIView (HW13)
     path('subtasks/', SubTaskListCreateView.as_view(), name='subtask-list-create'),
     path('subtasks/<int:pk>/', SubTaskDetailUpdateDeleteView.as_view(), name='subtask-udr'),
 
