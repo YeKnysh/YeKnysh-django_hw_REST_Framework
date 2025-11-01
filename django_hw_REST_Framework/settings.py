@@ -19,6 +19,9 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        # ↓ добавлено: читаем access из httpOnly cookie, если нет Authorization header
+        'accounts.authentication.CookieJWTAuthentication',
+        # fallback по заголовку Authorization: Bearer <access>
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -46,7 +49,10 @@ INSTALLED_APPS = [
     'api',
     'tasks',
     'drf_yasg',
+    'accounts',  # <- наш app для auth эндпоинтов/классов
 
+    # blacklist refresh-токенов (HW20)
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
@@ -160,8 +166,23 @@ LOGGING = {
     },
 }
 
-# --- JWT lifetimes ---
+# --- JWT lifetimes + rotation/blacklist + cookie-ключи (HW20) ---
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+
+    # HW20: при рефреше выдаём новый refresh и заносим старый в blacklist
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+
+    # используем общий SECRET_KEY как SIGNING_KEY
+    'SIGNING_KEY': SECRET_KEY,
+
+    # имена и параметры httpOnly cookie (access/refresh)
+    'AUTH_COOKIE': 'access',
+    'AUTH_COOKIE_REFRESH': 'refresh',
+    'AUTH_COOKIE_SECURE': False,      # True на HTTPS-проде
+    'AUTH_COOKIE_HTTP_ONLY': True,
+    'AUTH_COOKIE_SAMESITE': 'Lax',    # 'None' если кросс-домен и HTTPS
+    'AUTH_COOKIE_PATH': '/',
 }
